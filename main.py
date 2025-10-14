@@ -4,7 +4,7 @@ import statistics
 import numpy as np
 from sensor import quaternion_sensor
 import matplotlib.pyplot as plt
-
+from camera import camera_info
 import time
 
 if __name__ == "__main__":
@@ -22,25 +22,16 @@ if __name__ == "__main__":
 
     start = time.time()
 
+    camera = camera_info(df)
+
     gyroscope = quaternion_sensor([df["gyro_x"], df["gyro_y"], df["gyro_z"]])
     magnetometer = quaternion_sensor([df["mag_x"], df["mag_y"], df["mag_z"]])
     accelerator = quaternion_sensor([df["acc_x"], df["acc_y"], df["acc_z"]])
 
-    gyro = []
-    magn = []
-    acce = []
-
-    for i in range(data_row):
-        if i < 1:
-            continue
-
-
-
-
     print(time.time() - start)
 
 
-    # plt.plot(gyroscope.x)
-    # plt.show()
+    plt.plot([val.x for val in gyroscope.quaternion_signal])
+    plt.show()
 
 
