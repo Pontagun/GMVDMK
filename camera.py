@@ -14,3 +14,6 @@ class camera_info:
         self.camera_z = list(df["cam_qz"])
         self.camera_w = list(df["cam_qw"])
         self.isTracked = list(df["isTracked"])
+
+    def get_delta_t(self, i):
+        return self.timestamp[i] - self.timestamp[i-1]
