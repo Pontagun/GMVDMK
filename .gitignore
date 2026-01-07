@@ -2,3 +2,5 @@
 *.xml
 *.xml
 *.iml
+.idea/GMVDMK.iml
+.idea/misc.xml
