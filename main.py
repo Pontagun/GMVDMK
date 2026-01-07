@@ -19,38 +19,38 @@ if __name__ == "__main__":
     data_col = df.shape[1]
 
     q_G = np.quaternion(1, 0, 0, 0)
+
+    raw_q_G = []
+
     q_zero = np.quaternion(1, 0, 0, 0)
     KM = np.zeros(data_row)
 
     start = time.time()
 
-
     # List of each column.
     camera = camera_info(df)
-
-
+    delta_t = []
+    temp_for_plot = []
     # List of quaternion.
-    gyroscope = quaternion_sensor([df["gyro_x"], df["gyro_y"], df["gyro_z"]])
-    magnetometer = quaternion_sensor([df["mag_x"], df["mag_y"], df["mag_z"]])
-    accelerator = quaternion_sensor([df["acc_x"], df["acc_y"], df["acc_z"]])
+    gyro = quaternion_sensor([df["gyro_x"], df["gyro_y"], df["gyro_z"]])
+    magnet = quaternion_sensor([df["mag_x"], df["mag_y"], df["mag_z"]])
+    accel = quaternion_sensor([df["acc_x"], df["acc_y"], df["acc_z"]])
 
     for i in range(1, data_row):
-        q_dot = .5 * (q_zero * gyroscope.quaternion_signal[i])
+        temp_for_plot.append(np.linalg.norm(quaternion.as_float_array(gyro.quaternion_signal[i])))
 
-        delta_t = camera.get_delta_t(i)
-        power_of_e =  delta_t * q_dot * q_G.conjugate()
+        q_dot = .5 * (q_zero * gyro.quaternion_signal[i])
+
+        delta_t = camera.get_delta_t(i) / 1000
+        power_of_e = delta_t * q_dot * q_G.conjugate()
         q_G = np.exp(power_of_e) * q_zero
-
-
-
-
-
-
-
+        q_zero = q_G
+        raw_q_G.append(q_G)
     print(time.time() - start)
 
-
-    # plt.plot([val.x for val in gyroscope.quaternion_signal])
-    # plt.show()
-
-
+    plt.plot([val.x for val in raw_q_G])
+    plt.plot([val.y for val in raw_q_G])
+    plt.plot([val.z for val in raw_q_G])
+    # plt.plot([val.w for val in raw_q_G])
+    # plt.plot(temp_for_plot)
+    plt.show()
