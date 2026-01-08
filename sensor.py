@@ -4,16 +4,27 @@ import configparser
 import numpy as np
 import quaternion
 
+
+def get_quat(w, x, y, z):
+    q = []
+    for index in range(len(w)):
+        q.append(quaternion.as_quat_array([w[index], x[index], y[index], z[index]]))
+
+    return q
+
+
 class QSensor:
-    def __init__(self, coordinate):
+    def __init__(self, **kwargs):
         self.config = configparser.ConfigParser()
         self.config.read('config.ini')
+
+        coordinate = kwargs['coordinate']
 
         w = [0 for i in range(len(coordinate[0]))]
         x = self.get_smoothen_signal(list(coordinate[0]))  # column data
         y = self.get_smoothen_signal(list(coordinate[1]))
         z = self.get_smoothen_signal(list(coordinate[2]))
-        self.quat = self.get_quat(w, x, y, z)
+        self.quat = get_quat(w, x, y, z)
 
     def get_smoothen_signal(self, axis):
         window = int(self.config['GMVDMK_WINDOW']["SmoothWindow"])
@@ -33,10 +44,3 @@ class QSensor:
         unit_q = q / norm_q
 
         return unit_q
-
-    def get_quat(self, w, x, y, z):
-        q = []
-        for index in range(len(w)):
-            q.append(quaternion.as_quat_array([w[index], x[index], y[index], z[index]]))
-
-        return q
