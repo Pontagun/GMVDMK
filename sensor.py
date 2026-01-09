@@ -10,20 +10,19 @@ def get_quat(w, x, y, z):
     for index in range(len(w)):
         q.append(quaternion.as_quat_array([w[index], x[index], y[index], z[index]]))
 
-    return q
+    return np.asarray(q)
 
 
 class QSensor:
-    def __init__(self, **kwargs):
+    def __init__(self, *args):
         self.config = configparser.ConfigParser()
         self.config.read('config.ini')
 
-        coordinate = kwargs['coordinate']
 
-        w = [0 for i in range(len(coordinate[0]))]
-        x = self.get_smoothen_signal(list(coordinate[0]))  # column data
-        y = self.get_smoothen_signal(list(coordinate[1]))
-        z = self.get_smoothen_signal(list(coordinate[2]))
+        w = [0 for i in range(len(args[0]))]
+        x = self.get_smoothen_signal(np.array(args[0]))# column data
+        y = self.get_smoothen_signal(np.array(args[1]))
+        z = self.get_smoothen_signal(np.array(args[2]))
         self.quat = get_quat(w, x, y, z)
 
     def get_smoothen_signal(self, axis):
