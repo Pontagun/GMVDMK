@@ -1,5 +1,9 @@
 import configparser
 
+from numpy.conftest import dtype
+import numpy as np
+import quaternion
+
 
 def get_gamma_filter(stilness, alpha):
     return (.5 * stilness) + (1 - .5) * alpha
@@ -20,3 +24,7 @@ def get_sensor_diff(v, w):
     else:
         return 0
 
+
+def get_vector(q):
+    if type(q) == quaternion.quaternion:
+        return [q.x, q.y, q.z]

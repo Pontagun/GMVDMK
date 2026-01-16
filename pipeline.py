@@ -3,17 +3,19 @@ import quaternion
 
 
 class Correction:
-    def __init__(self, m_init):
-        self.m_init = m_init
-
-    def simulate_mag(self, q):
-        # q = quaternion.as_quat_array(q)
-        return q.conjugate() * self.m_init * q
+    def __init__(self, args):
+        self.x = args.x
+        self.y = args.y
+        self.z = args.z
 
     def get_delta_qref(self, v_reading, v_sim):
         qw = self.get_qref_w(v_reading, v_sim)
         qv = self.get_qref_v(v_reading, v_sim)
-        return qw + qv
+        return quaternion.as_quat_array([qw] + list(qv))
+
+    @staticmethod
+    def get_sim_reading_frame_body(q_init, q_rot):  # Change function name to something from seeing gravity vector from body frame.
+        return q_rot.conjugate() * q_init * q_rot
 
     @staticmethod
     def get_qg_adjusted(qg, delta_qref):
@@ -22,9 +24,9 @@ class Correction:
 
     @staticmethod
     def get_qref_w(v_reading, v_sim):
-        reading_norm = np.linalg.norm(v_reading)
-        sim_norm = np.linalg.norm(v_sim)
-        dot = np.dot(v_reading, v_sim)
+        reading_norm = np.linalg.norm([v_reading.x, v_reading.y, v_reading.z])
+        sim_norm = np.linalg.norm(quaternion.as_float_array(v_sim))
+        dot = np.dot([v_reading.x, v_reading.y, v_reading.z], [v_sim.x, v_sim.y, v_sim.z])
 
         qref_w = reading_norm * sim_norm + dot
 
@@ -32,4 +34,4 @@ class Correction:
 
     @staticmethod
     def get_qref_v(v_reading, v_sim):
-        return np.cross(v_reading, v_sim)
+        return np.cross([v_reading.x, v_reading.y, v_reading.z], [v_sim.x, v_sim.y, v_sim.z])

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from camera import Camera
 import time
 import quaternion
-
+from pipeline import Correction
 
 if __name__ == "__main__":
     config = configparser.ConfigParser()
@@ -21,8 +21,8 @@ if __name__ == "__main__":
     data_row = df.shape[0]
     data_col = df.shape[1]
 
-    q_G = np.quaternion(1, 0, 0, 0)
-    q_G_lst = []
+    qG = np.quaternion(1, 0, 0, 0)
+    qG_lst = []
     temp = []
 
     camera = Camera(df)
@@ -35,25 +35,46 @@ if __name__ == "__main__":
     alpha_mtnlns = 0.0
 
     for i in range(alpha_window, data_row):
-
+        # Get qG with no correction.
         delta_t = camera.get_delta_t(i) / 1000
 
-        q_dot = .5 * (q_G * gyro.quat[i])
-        power = delta_t * q_dot * q_G.conjugate()
-        q_G = np.exp(power) * q_G
-        q_G = QSensor.get_quat_normalization(q_G)
+        qDot = .5 * (qG * gyro.quat[i])
+        power = delta_t * qDot * qG.conjugate()
+        qG = np.exp(power) * qG
+        qG = QSensor.get_quat_normalization(qG)
 
-        v = accel.quat[i-alpha_window]
+        # Get alpha
+        v = accel.quat[i - alpha_window]
         w = accel.quat[i]
         stillness_acc = helper.get_sensor_diff(v, w)
-        alpha_mtnlns = helper.get_gamma_filter(stillness_acc, alpha_mtnlns)
+        alpha_mtnlns = helper.get_gamma_filter(stillness_acc ** 2, alpha_mtnlns)
 
-        q_G_lst.append(q_G)
+        a_correction = Correction(accel.quat[i])
+        m_correction = Correction(magnet.quat[i])
+
+        a_qG = a_correction.get_sim_reading_frame_body(a_init, qG)
+        qA_delta = a_correction.get_delta_qref(a_correction, a_qG)
+        qGA = a_correction.get_qg_adjusted(qG, qA_delta)
+
+        m_qG = m_correction.get_sim_reading_frame_body(m_init, qG)
+        qM_delta = m_correction.get_delta_qref(m_correction, m_qG)
+        qGM = m_correction.get_qg_adjusted(qG, qM_delta)
+
+        # Get Kmu
+        magnet_frame_inert = m_correction.get_sim_reading_frame_body(magnet.quat[i], qG.conjugate())
+        mfi_magnitude = np.linalg.norm(helper.get_vector(magnet_frame_inert))
+
+
+        # qGA = QSensor.get_quat_normalization(qGA)
+        # qGM = QSensor.get_quat_normalization(qGM)
+
+        # qSA = quaternion.slerp_evaluate(qG, qGA, alpha_mtnlns)
+        qG_lst.append(qGA)
         temp.append(alpha_mtnlns)
 
-    plt.plot([val.x for val in q_G_lst])
-    plt.plot([val.y for val in q_G_lst])
-    plt.plot([val.z for val in q_G_lst])
-    plt.plot([val.w for val in q_G_lst])
-    plt.plot(temp)
+    plt.plot([val.x for val in qG_lst])
+    plt.plot([val.y for val in qG_lst])
+    plt.plot([val.z for val in qG_lst])
+    plt.plot([val.w for val in qG_lst])
+    # plt.plot(temp)
     plt.show()
