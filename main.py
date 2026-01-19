@@ -2,6 +2,7 @@ import configparser
 import pandas as pd
 import statistics
 import numpy as np
+from pandas.core.array_algos.masked_reductions import mean
 
 import helper
 from sensor import QSensor
@@ -23,7 +24,7 @@ if __name__ == "__main__":
 
     qG = np.quaternion(1, 0, 0, 0)
     qG_lst = []
-    temp = []
+    temp = [[], []]
 
     camera = Camera(df)
     gyro = QSensor(df["gyro_x"], df["gyro_y"], df["gyro_z"])
@@ -49,8 +50,8 @@ if __name__ == "__main__":
         stillness_acc = helper.get_sensor_diff(v, w)
         alpha_mtnlns = helper.get_gamma_filter(stillness_acc ** 2, alpha_mtnlns)
 
-        a_correction = Correction(accel.quat[i])
-        m_correction = Correction(magnet.quat[i])
+        a_correction = Correction(accel.quat[i], a_init)
+        m_correction = Correction(magnet.quat[i], m_init)
 
         a_qG = a_correction.get_sim_reading_frame_body(a_init, qG)
         qA_delta = a_correction.get_delta_qref(a_correction, a_qG)
@@ -63,20 +64,36 @@ if __name__ == "__main__":
         # Get Kmu
         # get_sim_reading_frame_body with a conjugate() quaternion is moving to the inertial perspective.
         magnet_frame_inert = m_correction.get_sim_reading_frame_body(magnet.quat[i], qG.conjugate())
-        mfi_magnitude = np.linalg.norm(helper.get_vector(magnet_frame_inert))
+        magnet_frame_inert = helper.get_vector(magnet_frame_inert)
+
+        mk_ka = m_correction.get_mu_ka(magnet_frame_inert)
+        mk_km = m_correction.get_mu_km(magnet_frame_inert)
+        mk_merged = np.mean([mk_ka, mk_km])
 
 
+        mu_k = m_correction.get_mu_k(mk_merged, alpha_mtnlns)
 
-        # qGA = QSensor.get_quat_normalization(qGA)
-        # qGM = QSensor.get_quat_normalization(qGM)
+        qSA = quaternion.slerp_evaluate(qG, qGA, alpha_mtnlns)
+        qSM = quaternion.slerp_evaluate(qG, qGM, mu_k)
 
-        # qSA = quaternion.slerp_evaluate(qG, qGA, alpha_mtnlns)
-        qG_lst.append(qGA)
-        temp.append(alpha_mtnlns)
 
-    plt.plot([val.x for val in qG_lst])
-    plt.plot([val.y for val in qG_lst])
-    plt.plot([val.z for val in qG_lst])
-    plt.plot([val.w for val in qG_lst])
-    # plt.plot(temp)
+        # qG = quaternion.slerp_evaluate(qSA, qSM, alpha_mtnlns)
+        qSA = QSensor.get_quat_normalized(qSA)
+        qSM = QSensor.get_quat_normalized(qSM)
+        qG = quaternion.slerp_evaluate(qSA, qSM, alpha_mtnlns)
+
+        qG_lst.append(gyro.quat[i])
+        temp[0].append(mk_ka)
+        temp[1].append(mk_km)
+
+
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+    ax1.plot([val.x for val in qG_lst])
+    ax1.plot([val.y for val in qG_lst])
+    ax1.plot([val.z for val in qG_lst])
+    # plt.plot([val.w for val in qG_lst])
+
+
+    ax2.plot(temp[0], 'r')
+    ax3.plot(temp[1], 'b')
     plt.show()

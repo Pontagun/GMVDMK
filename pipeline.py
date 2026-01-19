@@ -1,18 +1,19 @@
 import numpy as np
 import quaternion
 import configparser
+import helper
 
 
 class Correction:
-    def __init__(self, args):
+    def __init__(self, *args):
         self.config = configparser.ConfigParser()
         self.config.read('config.ini')
 
-        self.x = args.x
-        self.y = args.y
-        self.z = args.z
+        self.x = args[0].x
+        self.y = args[0].y
+        self.z = args[0].z
 
-        self.init_vector = args.init_vector
+        self.init_vector = helper.get_vector(args[1])
 
     def get_delta_qref(self, v_reading, v_sim):
         qw = self.get_qref_w(v_reading, v_sim)
@@ -71,7 +72,6 @@ class Correction:
 
     @staticmethod
     def get_mu_fusion(u, v):
-
         return (u + v) / 2
 
     @staticmethod
@@ -90,3 +90,10 @@ class Correction:
         rad = np.arccos(dot / (u_mag * v_mag))
 
         return np.clip(rad, -1.0, 1.0)
+
+    def get_mu_k(self, u, v):
+        slope = int(self.config['SLOPE']["MuK"])
+
+        mu_k1 = (v * slope) - slope + 1
+        mu_k = (mu_k1 + abs(mu_k1)) / 2
+        return u * mu_k
