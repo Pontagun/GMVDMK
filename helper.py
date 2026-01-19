@@ -28,3 +28,4 @@ def get_sensor_diff(v, w):
 def get_vector(q):
     if type(q) == quaternion.quaternion:
         return [q.x, q.y, q.z]
+    return None

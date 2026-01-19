@@ -29,7 +29,7 @@ class QSensor:
         return signal
 
     @staticmethod
-    def get_quat_normalization(q):
+    def get_quat_normalized(q):
         norm_q = np.linalg.norm(quaternion.as_float_array(q))
         unit_q = q / norm_q
 

@@ -41,7 +41,7 @@ if __name__ == "__main__":
         qDot = .5 * (qG * gyro.quat[i])
         power = delta_t * qDot * qG.conjugate()
         qG = np.exp(power) * qG
-        qG = QSensor.get_quat_normalization(qG)
+        qG = QSensor.get_quat_normalized(qG)
 
         # Get alpha
         v = accel.quat[i - alpha_window]
@@ -61,8 +61,10 @@ if __name__ == "__main__":
         qGM = m_correction.get_qg_adjusted(qG, qM_delta)
 
         # Get Kmu
+        # get_sim_reading_frame_body with a conjugate() quaternion is moving to the inertial perspective.
         magnet_frame_inert = m_correction.get_sim_reading_frame_body(magnet.quat[i], qG.conjugate())
         mfi_magnitude = np.linalg.norm(helper.get_vector(magnet_frame_inert))
+
 
 
         # qGA = QSensor.get_quat_normalization(qGA)
