@@ -13,7 +13,8 @@ class Correction:
         self.y = args[0].y
         self.z = args[0].z
 
-        self.init_vector = helper.get_vector(args[1])
+        self.init_v = helper.get_vector(args[1])
+        self.init_q = args[1]
 
     @staticmethod
     def get_qg_adjusted(qg, delta_qref):
@@ -42,10 +43,8 @@ class Correction:
         qv = self.get_qref_v(v_sim)
         return qtn.as_quat_array([qw] + list(qv))
 
-    def get_sim_reading_frame_body(self,
-                                   q_rot):  # Change function name to something from seeing gravity vector from body frame.
-        q = qtn.from_vector_part(self.init_vector)
-        return q_rot.conjugate() * q * q_rot
+    def get_sim_reading_frame_body(self, q_rot):  # Change function name to something from seeing gravity vector from body frame.
+        return q_rot.conjugate() * self.init_q * q_rot
 
     def get_qref_w(self, v_sim):
         reading_norm = np.linalg.norm([self.x, self.y, self.z])
@@ -61,7 +60,7 @@ class Correction:
 
     def get_mu_ka(self, v):
         slope = int(self.config['SLOPE']["MuKa"])
-        gamma = self.get_radian(self.init_vector, v)
+        gamma = self.get_radian(self.init_v, v)
         r = (slope * gamma) + 1
 
         mu_ka = (1 + r + abs(1 + r)) / 4  # Best case, 1 - Worst cast, 0.
@@ -70,10 +69,10 @@ class Correction:
 
     def get_mu_km(self, v):
         v_magnitude = np.linalg.norm(v)
-        compass_magnitude = np.linalg.norm(self.init_vector)
+        compass_magnitude = np.linalg.norm(self.init_v)
 
         diff_mag = v_magnitude / compass_magnitude
-        diff_ang = self.get_radian(self.init_vector, v)
+        diff_ang = self.get_radian(self.init_v, v)
 
         penalty = diff_ang * diff_mag
 
