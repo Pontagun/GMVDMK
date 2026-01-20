@@ -1,5 +1,5 @@
 import numpy as np
-import quaternion
+import quaternion as qtn
 import configparser
 import helper
 
@@ -15,48 +15,60 @@ class Correction:
 
         self.init_vector = helper.get_vector(args[1])
 
-    def get_delta_qref(self, v_reading, v_sim):
-        qw = self.get_qref_w(v_reading, v_sim)
-        qv = self.get_qref_v(v_reading, v_sim)
-        return quaternion.as_quat_array([qw] + list(qv))
-
-    @staticmethod
-    def get_sim_reading_frame_body(q_init,
-                                   q_rot):  # Change function name to something from seeing gravity vector from body frame.
-        return q_rot.conjugate() * q_init * q_rot
-
     @staticmethod
     def get_qg_adjusted(qg, delta_qref):
         qg_ref = qg * delta_qref
         return qg_ref
 
     @staticmethod
-    def get_qref_w(v_reading, v_sim):
-        reading_norm = np.linalg.norm([v_reading.x, v_reading.y, v_reading.z])
-        sim_norm = np.linalg.norm(quaternion.as_float_array(v_sim))
-        dot = np.dot([v_reading.x, v_reading.y, v_reading.z], [v_sim.x, v_sim.y, v_sim.z])
+    def get_mu_fusion(u, v):
+        return (u + v) / 2
+
+    @staticmethod
+    def get_radian(u, v):
+        u_mag = np.linalg.norm(u)
+        v_mag = np.linalg.norm(v)
+
+        dot = np.dot(u, v)
+        res = dot / (u_mag * v_mag)
+        res = np.clip(res, -1.0, 1.0)
+
+        rad = np.arccos(res)
+
+        return rad
+
+    def get_delta_qref(self, v_sim):
+        qw = self.get_qref_w(v_sim)
+        qv = self.get_qref_v(v_sim)
+        return qtn.as_quat_array([qw] + list(qv))
+
+    def get_sim_reading_frame_body(self,
+                                   q_rot):  # Change function name to something from seeing gravity vector from body frame.
+        q = qtn.from_vector_part(self.init_vector)
+        return q_rot.conjugate() * q * q_rot
+
+    def get_qref_w(self, v_sim):
+        reading_norm = np.linalg.norm([self.x, self.y, self.z])
+        sim_norm = np.linalg.norm(qtn.as_float_array(v_sim))
+        dot = np.dot([self.x, self.y, self.z], qtn.as_vector_part(v_sim))
 
         qref_w = reading_norm * sim_norm + dot
 
         return qref_w
 
-    @staticmethod
-    def get_qref_v(v_reading, v_sim):
-        return np.cross([v_reading.x, v_reading.y, v_reading.z], [v_sim.x, v_sim.y, v_sim.z])
+    def get_qref_v(self, v_sim):
+        return np.cross([self.x, self.y, self.z], qtn.as_vector_part(v_sim))
 
     def get_mu_ka(self, v):
         slope = int(self.config['SLOPE']["MuKa"])
-
         gamma = self.get_radian(self.init_vector, v)
+        r = (slope * gamma) + 1
 
-        r = slope * gamma + 1
+        mu_ka = (1 + r + abs(1 + r)) / 4  # Best case, 1 - Worst cast, 0.
 
-        mk_ka = (1 + r + abs(1 + r)) / 4  # Best case, 1 - Worst cast, 0.
-
-        return mk_ka
+        return mu_ka
 
     def get_mu_km(self, v):
-
         v_magnitude = np.linalg.norm(v)
         compass_magnitude = np.linalg.norm(self.init_vector)
 
@@ -70,30 +82,9 @@ class Correction:
 
         return mu_km
 
-    @staticmethod
-    def get_mu_fusion(u, v):
-        return (u + v) / 2
-
-    @staticmethod
-    def get_radian(u, v):
-        try:
-            u = list(u)
-            v = list(v)
-        except TypeError:
-            return None
-
-        u_mag = np.linalg.norm(u)
-        v_mag = np.linalg.norm(v)
-
-        dot = np.dot(u, v)
-
-        rad = np.arccos(dot / (u_mag * v_mag))
-
-        return np.clip(rad, -1.0, 1.0)
-
     def get_mu_k(self, u, v):
         slope = int(self.config['SLOPE']["MuK"])
 
-        mu_k1 = (v * slope) - slope + 1
-        mu_k = (mu_k1 + abs(mu_k1)) / 2
+        mu_k = (v * slope) - slope + 1
+        mu_k = (mu_k + abs(mu_k)) / 2
         return u * mu_k
