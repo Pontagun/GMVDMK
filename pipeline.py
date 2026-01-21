@@ -1,4 +1,5 @@
 import numpy as np
+import quaternion
 import quaternion as qtn
 import configparser
 import helper
@@ -43,20 +44,26 @@ class Correction:
         qv = self.get_qref_v(v_sim)
         return qtn.as_quat_array([qw] + list(qv))
 
-    def get_sim_reading_frame_body(self, q_rot):  # Change function name to something from seeing gravity vector from body frame.
-        return q_rot.conjugate() * self.init_q * q_rot
+    def get_sim_reading_frame_body(self, q_rot):
+        # Change function name to something from seeing gravity vector from body frame.
+        q = q_rot.conjugate() * self.init_q * q_rot
+        return helper.get_vector(q)
+
+    def get_sim_reading_frame_world(self, q_rot):
+        return q_rot * quaternion.from_vector_part([self.x, self.y, self.z]) * q_rot.conjugate()
 
     def get_qref_w(self, v_sim):
-        reading_norm = np.linalg.norm([self.x, self.y, self.z])
-        sim_norm = np.linalg.norm(qtn.as_float_array(v_sim))
-        dot = np.dot([self.x, self.y, self.z], qtn.as_vector_part(v_sim))
+        v_reading = [self.x, self.y, self.z]
+        reading_norm = np.linalg.norm(v_reading)
+        sim_norm = np.linalg.norm(v_sim)
+        dot = np.dot(v_reading, v_sim)
 
         qref_w = reading_norm * sim_norm + dot
 
         return qref_w
 
     def get_qref_v(self, v_sim):
-        return np.cross([self.x, self.y, self.z], qtn.as_vector_part(v_sim))
+        return np.cross([self.x, self.y, self.z], v_sim)
 
     def get_mu_ka(self, v):
         slope = int(self.config['SLOPE']["MuKa"])
