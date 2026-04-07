@@ -71,11 +71,11 @@ if __name__ == "__main__":
         qGM = m_pipeline.get_qg_adjusted(qG, qM_delta)
         qGM = QSensor.get_quat_normalized(qGM)
 
-        # # Single slerp.
+        # Single slerp.
         qSA = quaternion.slerp_evaluate(qG, qGA, alpha_mtnlns)
         qSM = quaternion.slerp_evaluate(qG, qGM, mu_k)
-        #
-        # # Double slerp.
+
+        # Double slerp.
         qG = quaternion.slerp_evaluate(qSA, qSM, alpha_mtnlns)
 
         qG = QSensor.get_quat_normalized(qG)
@@ -92,9 +92,6 @@ if __name__ == "__main__":
         mk_km = m_pipeline.get_mu_km(magnet_frame_inert_v)
         mu_k_prelim = np.mean([mk_ka, mk_km])
         mu_k = m_pipeline.get_mu_k(mu_k_prelim, alpha_mtnlns)
-
-
-
 
     fig, (ax1, ax2) = plt.subplots(2, 1)
 
