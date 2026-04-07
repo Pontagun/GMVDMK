@@ -80,8 +80,6 @@ if __name__ == "__main__":
 
         qG = QSensor.get_quat_normalized(qG)
         qG_lst.append(qG)
-        temp[0].append(alpha_mtnlns)
-        temp[1].append(camera.stillness)
         magnet_frame_inert_q = m_pipeline.get_sim_reading_frame_world(qG)
         magnet_frame_inert_v = helper.get_vector(magnet_frame_inert_q)
 
@@ -96,14 +94,12 @@ if __name__ == "__main__":
 
 
 
-    fig, (ax1, ax2) = plt.subplots(2, 1)
+    fig, (ax1) = plt.subplots(1, 1)
 
     ax1.plot([val.x for val in qG_lst])
     ax1.plot([val.y for val in qG_lst])
     ax1.plot([val.z for val in qG_lst])
     ax1.plot([val.w for val in qG_lst])
-    ax2.plot(temp[0], 'red')
-    ax2.plot(camera.stillness, 'blue')
-    # ax3.plot(temp[2])
+
 
     plt.show()
