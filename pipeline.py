@@ -26,16 +26,16 @@ class Correction:
     def get_mu_fusion(u, v):
         return (u + v) / 2
 
-    @staticmethod
-    def get_radian(u, v):
-        u_mag = np.linalg.norm(u)
+
+    def get_radian(self, v):
+        u_mag = np.linalg.norm(self.init_v)
         v_mag = np.linalg.norm(v)
 
-        dot = np.dot(u, v)
+        dot = np.dot(self.init_v, v)
         res = dot / (u_mag * v_mag)
-        res = np.clip(res, -1.0, 1.0)
+        res = np.clip(res, a_min=-1.0, a_max=1.0)
 
-        rad = np.arccos(res)
+        rad = round(np.arccos(res), 4)
 
         return rad
 
@@ -67,10 +67,10 @@ class Correction:
 
     def get_mu_ka(self, v):
         slope = int(self.config['SLOPE']["MuKa"])
-        gamma = self.get_radian(self.init_v, v)
-        r = (slope * gamma) + 1
-
-        mu_ka = (1 + r + abs(1 + r)) / 4  # Best case, 1 - Worst cast, 0.
+        gamma = self.get_radian(v)
+        r = 1 + slope * gamma
+        # r = 1 (gamma = 0) means no difference between calculation and actual readings.
+        mu_ka = (1 + r + abs(1 + r)) / 4  # Best case, 1 - Worst cast, negative number.
 
         return mu_ka
 
@@ -79,7 +79,7 @@ class Correction:
         compass_magnitude = np.linalg.norm(self.init_v)
 
         diff_mag = v_magnitude / compass_magnitude
-        diff_ang = self.get_radian(self.init_v, v)
+        diff_ang = self.get_radian(v)
 
         penalty = diff_ang * diff_mag
 

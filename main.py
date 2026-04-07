@@ -25,7 +25,7 @@ if __name__ == "__main__":
     qG = np.quaternion(1, 0, 0, 0)
     qG_lst = []
     qGA_lst = []
-    temp = [[], []]
+    temp = [[], [], [], [], [], []]
 
     camera = Camera(df)
     gyro = QSensor(df["gyro_x"], df["gyro_y"], df["gyro_z"])
@@ -59,15 +59,17 @@ if __name__ == "__main__":
         a_pipeline = Correction(accel.quat[i], a_init)
         m_pipeline = Correction(magnet.quat[i], m_init)
 
-        a_qG = a_pipeline.get_sim_reading_frame_body(qG)  # Not unit q anymore.
+        a_qG = a_pipeline.get_sim_reading_frame_body(qG)
         qA_delta = a_pipeline.get_delta_qref(a_qG)
         qA_delta = QSensor.get_quat_normalized(qA_delta)
         qGA = a_pipeline.get_qg_adjusted(qG, qA_delta)
+        qGA = QSensor.get_quat_normalized(qGA)
 
         m_qG = m_pipeline.get_sim_reading_frame_body(qG)
         qM_delta = m_pipeline.get_delta_qref(m_qG)
         qM_delta = QSensor.get_quat_normalized(qM_delta)
         qGM = m_pipeline.get_qg_adjusted(qG, qM_delta)
+        qGM = QSensor.get_quat_normalized(qGM)
 
         # # Single slerp.
         qSA = quaternion.slerp_evaluate(qG, qGA, alpha_mtnlns)
@@ -77,11 +79,11 @@ if __name__ == "__main__":
         qG = quaternion.slerp_evaluate(qSA, qSM, alpha_mtnlns)
 
         qG = QSensor.get_quat_normalized(qG)
-
+        qG_lst.append(qG)
+        temp[0].append(alpha_mtnlns)
+        temp[1].append(camera.stillness)
         magnet_frame_inert_q = m_pipeline.get_sim_reading_frame_world(qG)
         magnet_frame_inert_v = helper.get_vector(magnet_frame_inert_q)
-
-        qG_lst.append(qG)
 
         # TODO: Exam and try to drop mk_km.
         # Get Kmu
@@ -91,8 +93,8 @@ if __name__ == "__main__":
         mu_k_prelim = np.mean([mk_ka, mk_km])
         mu_k = m_pipeline.get_mu_k(mu_k_prelim, alpha_mtnlns)
 
-        temp[0].append(np.linalg.norm(quaternion.as_float_array((magnet_frame_inert_q))))
-        temp[1].append(alpha_mtnlns)
+
+
 
     fig, (ax1, ax2) = plt.subplots(2, 1)
 
@@ -100,8 +102,8 @@ if __name__ == "__main__":
     ax1.plot([val.y for val in qG_lst])
     ax1.plot([val.z for val in qG_lst])
     ax1.plot([val.w for val in qG_lst])
-    # ax2.set_ylim(-0.1, 1.1)
-    ax2.plot(temp[0], 'r')
-    ax2.plot(temp[1], 'b')
+    ax2.plot(temp[0], 'red')
+    ax2.plot(camera.stillness, 'blue')
+    # ax3.plot(temp[2])
 
     plt.show()

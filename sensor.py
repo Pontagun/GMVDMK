@@ -22,17 +22,23 @@ class QSensor:
 
         for index, value in enumerate(axis):
             if index > window:
-                signal.append(statistics.mean(axis[index - window:index]))
+                signal.append(round(statistics.mean(axis[index - window:index]), 4))
             else:
-                signal.append(value)
+                signal.append(round(value, 4))
 
         return signal
 
     @staticmethod
     def get_quat_normalized(q):
+        if type(q) != quaternion.quaternion:
+            return q
+
         norm_q = np.linalg.norm(quaternion.as_float_array(q))
         unit_q = q / norm_q
-
+        unit_q.w = round(unit_q.w, 4)
+        unit_q.x = round(unit_q.x, 4)
+        unit_q.y = round(unit_q.y, 4)
+        unit_q.z = round(unit_q.z, 4)
         return unit_q
 
     @staticmethod
