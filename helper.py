@@ -6,7 +6,7 @@ import quaternion
 
 
 def get_gamma_filter(stilness, alpha):
-    return (.5 * stilness) + (1 - .5) * alpha
+    return (.25 * stilness) + (1 - .25) * alpha
 
 
 def get_sensor_diff(v, w):
@@ -20,7 +20,7 @@ def get_sensor_diff(v, w):
                                , abs(delta_vector.z)])
 
     if delta_vector_max <= mtnlns_threshold:
-        return 1 - (delta_vector_max / mtnlns_threshold)
+        return 1 - (delta_vector_max / .25)
     else:
         return 0
 
