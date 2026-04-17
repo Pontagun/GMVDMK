@@ -16,4 +16,4 @@ class Camera:
         self.isTracked = list(df["isTracked"])
 
     def get_delta_t(self, i):
-        return self.timestamp[i] - self.timestamp[i-1]
+        return self.timestamp[i] - self.timestamp[i - 1]

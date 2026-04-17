@@ -26,7 +26,6 @@ class Correction:
     def get_mu_fusion(u, v):
         return (u + v) / 2
 
-
     def get_radian(self, v):
         u_mag = np.linalg.norm(self.init_v)
         v_mag = np.linalg.norm(v)
@@ -88,9 +87,9 @@ class Correction:
 
         return mu_km
 
-    def get_mu_k(self, u, v):
+    def get_mu_k(self, temp_km, alpha):
         slope = int(self.config['SLOPE']["MuK"])
 
-        mu_k = (v * slope) - slope + 1
-        mu_k = (mu_k + abs(mu_k)) / 2
-        return u * mu_k
+        speed = (alpha * slope) - slope + 1
+        speed = (speed + abs(speed)) / 2
+        return temp_km * speed

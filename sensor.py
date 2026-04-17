@@ -1,4 +1,3 @@
-import pandas as pd
 import statistics
 import configparser
 import numpy as np
@@ -21,7 +20,7 @@ class QSensor:
         signal = []
 
         for index, value in enumerate(axis):
-            if index > window:
+            if index >= window:
                 signal.append(round(statistics.mean(axis[index - window:index]), 4))
             else:
                 signal.append(round(value, 4))
