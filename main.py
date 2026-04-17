@@ -1,14 +1,11 @@
 import configparser
 import pandas as pd
-import statistics
 import numpy as np
-from pandas.core.array_algos.masked_reductions import mean
 
 import helper
 from sensor import QSensor
 import matplotlib.pyplot as plt
 from camera import Camera
-import time
 import quaternion
 from pipeline import Correction
 
@@ -24,7 +21,6 @@ if __name__ == "__main__":
 
     qG = np.quaternion(1, 0, 0, 0)
     qG_lst = []
-    qGA_lst = []
     temp = [[], [], [], [], [], []]
 
     camera = Camera(df)
@@ -41,7 +37,7 @@ if __name__ == "__main__":
 
     for i in range(alpha_window, data_row):
         # Get qG with no correction.
-        delta_t = camera.get_delta_t(i)
+        delta_t = camera.get_delta_t(i) / 1000
 
         qDot = .5 * (qG * gyro.quat[i])
         power = delta_t * qDot * qG.conjugate()
@@ -49,12 +45,12 @@ if __name__ == "__main__":
 
         # This qG has drift.
         qG = QSensor.get_quat_normalized(qG)
+
         # Get alpha
-        hist_i = i - alpha_window
-        hist_accel = [df["acc_x"][hist_i], df["acc_y"][hist_i], df["acc_z"][hist_i]] # accel.quat[hist_i]
-        curr_accel = [df["acc_x"][i], df["acc_y"][i], df["acc_z"][i]] # accel.quat[i]
-        accel_diff = helper.get_sensor_diff(hist_accel, curr_accel)
-        alpha_mtnlns = helper.get_gamma_filter(accel_diff, alpha_mtnlns)
+        hist_accel = accel.quat[i - alpha_window]
+        curr_accel = accel.quat[i]
+        stillness_acc = helper.get_sensor_diff(hist_accel, curr_accel)
+        alpha_mtnlns = helper.get_gamma_filter(stillness_acc, alpha_mtnlns)
 
         a_pipeline = Correction(accel.quat[i], a_init)
         m_pipeline = Correction(magnet.quat[i], m_init)
@@ -79,24 +75,20 @@ if __name__ == "__main__":
         qG = quaternion.slerp_evaluate(qSM, qSA, alpha_mtnlns)
 
         qG = QSensor.get_quat_normalized(qG)
+        qG_lst.append(qG)
 
         magnet_frame_inert_q = m_pipeline.get_sim_reading_frame_world(qG)
         magnet_frame_inert_v = helper.get_vector(magnet_frame_inert_q)
-        qG_lst.append(qG)
-        # TODO: Exam and try to drop mk_km.
-        # Get Kmu
-        # get_sim_reading_frame_body with a conjugate() quaternion is moving to the inertial perspective.
         mk_ka = m_pipeline.get_mu_ka(magnet_frame_inert_v)
         mk_km = m_pipeline.get_mu_km(magnet_frame_inert_v)
-        mu_k_prelim = np.mean([mk_ka, mk_km])
+        mu_k_prelim = m_pipeline.get_mu_fusion(mk_ka, mk_km)
         mu_k = m_pipeline.get_mu_k(mu_k_prelim, alpha_mtnlns)
 
     fig, (ax1) = plt.subplots(1, 1)
 
-    ax1.plot([val.x for val in qG_lst])
-    ax1.plot([val.y for val in qG_lst])
-    ax1.plot([val.z for val in qG_lst])
-    ax1.plot([val.w for val in qG_lst])
+    ax1.plot([val.x for val in qG_lst], linewidth=1)
+    ax1.plot([val.y for val in qG_lst], linewidth=1)
+    ax1.plot([val.z for val in qG_lst], linewidth=1)
+    ax1.plot([val.w for val in qG_lst], linewidth=1)
 
     plt.show()
-

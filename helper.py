@@ -1,7 +1,5 @@
 import configparser
 
-from numpy.conftest import dtype
-import numpy as np
 import quaternion
 
 
@@ -14,10 +12,10 @@ def get_sensor_diff(hist_accel, curr_accel):
     config.read('config.ini')
     mtnlns_threshold = float(config['SENSOR_THRESHOLD']['MTNLNSThreshold'])
 
-    # delta_vector = curr_accel - hist_accel
-    delta_vector_max = max([abs(curr_accel[0] - hist_accel[0])
-                               , abs(curr_accel[1] - hist_accel[1])
-                               , abs(curr_accel[2] - hist_accel[2])])
+    delta_vector = curr_accel - hist_accel
+    delta_vector_max = max([abs(delta_vector.x)
+                               , abs(delta_vector.y)
+                               , abs(delta_vector.z)])
 
     if delta_vector_max <= mtnlns_threshold:
         return 1 - (delta_vector_max / .25)

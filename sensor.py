@@ -1,4 +1,3 @@
-import pandas as pd
 import statistics
 import configparser
 import numpy as np

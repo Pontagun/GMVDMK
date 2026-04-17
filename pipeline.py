@@ -26,7 +26,6 @@ class Correction:
     def get_mu_fusion(u, v):
         return (u + v) / 2
 
-
     def get_radian(self, v):
         u_mag = np.linalg.norm(self.init_v)
         v_mag = np.linalg.norm(v)
