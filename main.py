@@ -9,6 +9,8 @@ from camera import Camera
 import quaternion
 from pipeline import Correction
 
+from ahrs.filters import EKF, FKF, UKF
+
 if __name__ == "__main__":
     config = configparser.ConfigParser()
     config.read('config.ini')
@@ -34,6 +36,14 @@ if __name__ == "__main__":
     alpha_mtnlns = 1.0
     mu_k_prelim = 0
     mu_k = 0
+
+    g = df[["gyro_x", "gyro_y", "gyro_z"]].to_numpy()
+    a = df[["acc_x", "acc_y", "acc_z"]].to_numpy()
+    m = df[["mag_x", "mag_y", "mag_z"]].to_numpy()
+
+    ekf = EKF(gyr=g, acc=a, mag=m, frequency=120,)
+    fkf = FKF(gyr=g, acc=a, mag=m, frequency=120)
+    ukf = UKF(gyr=g, acc=a, mag=m, frequency=120)
 
     for i in range(alpha_window, data_row):
         # Get qG with no correction.
@@ -75,7 +85,7 @@ if __name__ == "__main__":
         qG = quaternion.slerp_evaluate(qSM, qSA, alpha_mtnlns)
 
         qG = QSensor.get_quat_normalized(qG)
-        qG_lst.append(qG)
+        qG_lst.append([qG.w, qG.x, qG.y, qG.z])
 
         magnet_frame_inert_q = m_pipeline.get_sim_reading_frame_world(qG)
         magnet_frame_inert_v = helper.get_vector(magnet_frame_inert_q)
@@ -84,11 +94,11 @@ if __name__ == "__main__":
         mu_k_prelim = m_pipeline.get_mu_fusion(mk_ka, mk_km)
         mu_k = m_pipeline.get_mu_k(mu_k_prelim, alpha_mtnlns)
 
-    fig, (ax1) = plt.subplots(1, 1)
-
-    ax1.plot([val.x for val in qG_lst], linewidth=1)
-    ax1.plot([val.y for val in qG_lst], linewidth=1)
-    ax1.plot([val.z for val in qG_lst], linewidth=1)
-    ax1.plot([val.w for val in qG_lst], linewidth=1)
+    fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1)
+    ax1.plot(g)
+    ax2.plot(qG_lst)
+    ax3.plot(ukf.Q)
+    ax4.plot(ekf.Q)
+    ax5.plot(fkf.Q)
 
     plt.show()
