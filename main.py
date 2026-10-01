@@ -14,6 +14,7 @@ if __name__ == "__main__":
     config.read('config.ini')
     df = pd.read_csv(config['ENVIRONMENT']["Filename"])
     alpha_window = int(config['GMVDMK_WINDOW']['AlphaWindow'])
+    quat_smooth_window = int(config['GMVDMK_WINDOW']['QuatSmoothWindow'])
 
     df.columns = df.columns.str.replace(' ', '')
     data_row = df.shape[0]
@@ -21,6 +22,7 @@ if __name__ == "__main__":
 
     qG = np.quaternion(1, 0, 0, 0)
     qG_lst = []
+    mus = []
     temp = [[], [], [], [], [], []]
 
     camera = Camera(df)
@@ -31,7 +33,13 @@ if __name__ == "__main__":
     m_init = magnet.quat[0]
     a_init = accel.quat[0]
 
-    alpha_mtnlns = 1.0
+    a_pipeline = Correction(a_init)
+    m_pipeline = Correction(m_init)
+
+    # Stillness depends only on raw accel data, so compute it for every step up front.
+    stillness_acc = helper.get_sensor_diff(accel.quat, alpha_window)
+    alpha_mtnlns_lst = helper.get_gamma_filter(stillness_acc)
+
     mu_k_prelim = 0
     mu_k = 0
 
@@ -39,33 +47,23 @@ if __name__ == "__main__":
         # Get qG with no correction.
         delta_t = camera.get_delta_t(i) / 1000
 
-        qDot = .5 * (qG * gyro.quat[i])
-        power = delta_t * qDot * qG.conjugate()
-        qG = np.exp(power) * qG
+        qG = qG * np.exp(.5 * delta_t * gyro.quat[i])
 
         # This qG has drift.
         qG = QSensor.get_quat_normalized(qG)
 
-        # Get alpha
-        hist_accel = accel.quat[i - alpha_window]
-        curr_accel = accel.quat[i]
-        stillness_acc = helper.get_sensor_diff(hist_accel, curr_accel)
-        alpha_mtnlns = helper.get_gamma_filter(stillness_acc, alpha_mtnlns)
+        alpha_mtnlns = alpha_mtnlns_lst[i - alpha_window]
 
-        a_pipeline = Correction(accel.quat[i], a_init)
-        m_pipeline = Correction(magnet.quat[i], m_init)
-
+        # qG and the deltas are unit quaternions, so qGA / qGM need no further normalization.
         a_qG = a_pipeline.get_sim_reading_frame_body(qG)
-        qA_delta = a_pipeline.get_delta_qref(a_qG)
+        qA_delta = a_pipeline.get_delta_qref(accel.quat[i], a_qG)
         qA_delta = QSensor.get_quat_normalized(qA_delta)
         qGA = a_pipeline.get_qg_adjusted(qG, qA_delta)
-        qGA = QSensor.get_quat_normalized(qGA)
 
         m_qG = m_pipeline.get_sim_reading_frame_body(qG)
-        qM_delta = m_pipeline.get_delta_qref(m_qG)
+        qM_delta = m_pipeline.get_delta_qref(magnet.quat[i], m_qG)
         qM_delta = QSensor.get_quat_normalized(qM_delta)
         qGM = m_pipeline.get_qg_adjusted(qG, qM_delta)
-        qGM = QSensor.get_quat_normalized(qGM)
 
         # Single slerp.
         qSA = quaternion.slerp_evaluate(qG, qGA, alpha_mtnlns)
@@ -77,18 +75,26 @@ if __name__ == "__main__":
         qG = QSensor.get_quat_normalized(qG)
         qG_lst.append(qG)
 
-        magnet_frame_inert_q = m_pipeline.get_sim_reading_frame_world(qG)
+        magnet_frame_inert_q = m_pipeline.get_sim_reading_frame_world(magnet.quat[i], qG)
         magnet_frame_inert_v = helper.get_vector(magnet_frame_inert_q)
-        mk_ka = m_pipeline.get_mu_ka(magnet_frame_inert_v)
-        mk_km = m_pipeline.get_mu_km(magnet_frame_inert_v)
+        magnet_gamma = m_pipeline.get_radian(magnet_frame_inert_v)
+        mk_ka = m_pipeline.get_mu_ka(magnet_gamma)
+        mk_km = m_pipeline.get_mu_km(magnet_frame_inert_v, magnet_gamma)
         mu_k_prelim = m_pipeline.get_mu_fusion(mk_ka, mk_km)
         mu_k = m_pipeline.get_mu_k(mu_k_prelim, alpha_mtnlns)
 
-    fig, (ax1) = plt.subplots(1, 1)
+        mus.append(mu_k)
 
-    ax1.plot([val.x for val in qG_lst], linewidth=1)
-    ax1.plot([val.y for val in qG_lst], linewidth=1)
-    ax1.plot([val.z for val in qG_lst], linewidth=1)
-    ax1.plot([val.w for val in qG_lst], linewidth=1)
+    qG_lst = helper.get_quat_moving_average(qG_lst, quat_smooth_window)
+
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+
+    ax1.plot([round(val.x, 4) for val in qG_lst], linewidth=1)
+    ax1.plot([round(val.y, 4) for val in qG_lst], linewidth=1)
+    ax1.plot([round(val.z, 4) for val in qG_lst], linewidth=1)
+    ax1.plot([round(val.w, 4) for val in qG_lst], linewidth=1)
+
+    ax2.plot(alpha_mtnlns_lst, linewidth=1)
+    ax3.plot(mus, linewidth=1)
 
     plt.show()

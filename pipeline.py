@@ -1,21 +1,22 @@
+import math
+
 import numpy as np
 import quaternion
-import quaternion as qtn
 import configparser
 import helper
 
+config = configparser.ConfigParser()
+config.read('config.ini')
+slope_mu_ka = int(config['SLOPE']["MuKa"])
+slope_mu_k = int(config['SLOPE']["MuK"])
+
 
 class Correction:
-    def __init__(self, *args):
-        self.config = configparser.ConfigParser()
-        self.config.read('config.ini')
-
-        self.x = args[0].x
-        self.y = args[0].y
-        self.z = args[0].z
-
-        self.init_v = helper.get_vector(args[1])
-        self.init_q = args[1]
+    def __init__(self, init_q):
+        # init_q is the sensor's first reading, used as the reference for every later reading.
+        self.init_v = helper.get_vector(init_q)
+        self.init_q = init_q
+        self.init_norm = abs(init_q)
 
     @staticmethod
     def get_qg_adjusted(qg, delta_qref):
@@ -27,69 +28,56 @@ class Correction:
         return (u + v) / 2
 
     def get_radian(self, v):
-        u_mag = np.linalg.norm(self.init_v)
-        v_mag = np.linalg.norm(v)
+        v_mag = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
 
-        dot = np.dot(self.init_v, v)
-        res = dot / (u_mag * v_mag)
-        res = np.clip(res, a_min=-1.0, a_max=1.0)
+        dot = self.init_v[0] * v[0] + self.init_v[1] * v[1] + self.init_v[2] * v[2]
+        res = dot / (self.init_norm * v_mag)
+        res = min(max(res, -1.0), 1.0)
 
-        rad = round(np.arccos(res), 4)
+        rad = math.acos(res)
 
         return rad
 
-    def get_delta_qref(self, v_sim):
-        qw = self.get_qref_w(v_sim)
-        qv = self.get_qref_v(v_sim)
-        return qtn.as_quat_array([qw] + list(qv))
+    @staticmethod
+    def get_delta_qref(q_reading, q_sim):
+        # Rotation from q_reading to q_sim: w = |a||b| + a.b, v = a x b.
+        # For pure quaternions a * b = (-a.b, a x b), so one product gives both terms.
+        p = q_reading * q_sim
+        return np.quaternion(abs(q_reading) * abs(q_sim) - p.w, p.x, p.y, p.z)
 
     def get_sim_reading_frame_body(self, q_rot):
         # Change function name to something from seeing gravity vector from body frame.
         q = q_rot.conjugate() * self.init_q * q_rot
-        return helper.get_vector(q)
+        # Drop the w part (rounding noise) so the result is a pure quaternion.
+        return np.quaternion(0, q.x, q.y, q.z)
 
-    def get_sim_reading_frame_world(self, q_rot):
-        return q_rot * quaternion.from_vector_part([self.x, self.y, self.z]) * q_rot.conjugate()
+    @staticmethod
+    def get_sim_reading_frame_world(q_reading, q_rot):
+        return q_rot * q_reading * q_rot.conjugate()
 
-    def get_qref_w(self, v_sim):
-        v_reading = [self.x, self.y, self.z]
-        reading_norm = np.linalg.norm(v_reading)
-        sim_norm = np.linalg.norm(v_sim)
-        dot = np.dot(v_reading, v_sim)
-
-        qref_w = reading_norm * sim_norm + dot
-
-        return qref_w
-
-    def get_qref_v(self, v_sim):
-        return np.cross([self.x, self.y, self.z], v_sim)
-
-    def get_mu_ka(self, v):
-        slope = int(self.config['SLOPE']["MuKa"])
-        gamma = self.get_radian(v)
-        r = 1 + slope * gamma
+    @staticmethod
+    def get_mu_ka(gamma):
+        r = 1 + slope_mu_ka * gamma
         # r = 1 (gamma = 0) means no difference between calculation and actual readings.
         mu_ka = (1 + r + abs(1 + r)) / 4  # Best case, 1 - Worst cast, negative number.
 
         return mu_ka
 
-    def get_mu_km(self, v):
-        v_magnitude = np.linalg.norm(v)
-        compass_magnitude = np.linalg.norm(self.init_v)
+    def get_mu_km(self, v, diff_ang):
+        v_magnitude = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
 
-        diff_mag = v_magnitude / compass_magnitude
-        diff_ang = self.get_radian(v)
+        diff_mag = v_magnitude / self.init_norm
 
-        penalty = diff_ang * diff_mag
+        # diff_mag = 1 means same magnitude, so penalize its distance from 1.
+        penalty = diff_ang + diff_mag
 
         mu_km = 1 - penalty
         mu_km = (mu_km + abs(mu_km)) / 2
 
         return mu_km
 
-    def get_mu_k(self, temp_km, alpha):
-        slope = int(self.config['SLOPE']["MuK"])
-
-        speed = (alpha * slope) - slope + 1
+    @staticmethod
+    def get_mu_k(temp_km, alpha):
+        speed = (alpha * slope_mu_k) - slope_mu_k + 1
         speed = (speed + abs(speed)) / 2
         return temp_km * speed
